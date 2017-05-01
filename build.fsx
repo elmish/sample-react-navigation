@@ -7,7 +7,7 @@ open System.IO
 open Fake
 open Fake.NpmHelper
 
-let yarn = 
+let yarn =
     if EnvironmentHelper.isWindows then "yarn.cmd" else "yarn"
     |> ProcessHelper.tryFindFileOnPath
     |> function
@@ -25,7 +25,7 @@ let projects  =
 let packages  =
       !! "src/package.json"
 
-let dotnetcliVersion = "1.0.1"
+let dotnetcliVersion = "1.0.3"
 let mutable dotnetExePath = "dotnet"
 
 let runDotnet workingDir args =
@@ -37,39 +37,39 @@ let runDotnet workingDir args =
             info.WorkingDirectory <- workingDir
             info.Arguments <- args) TimeSpan.MaxValue
     if result <> 0 then failwithf "Command failed: dotnet %s" args
-    
+
 
 Target "InstallDotNetCore" (fun _ ->
     let dotnetSDKPath = FullName "./dotnetsdk"
-    let correctVersionInstalled = 
+    let correctVersionInstalled =
         try
-            let processResult = 
-                ExecProcessAndReturnMessages (fun info ->  
+            let processResult =
+                ExecProcessAndReturnMessages (fun info ->
                 info.FileName <- dotnetExePath
                 info.WorkingDirectory <- Environment.CurrentDirectory
                 info.Arguments <- "--version") (TimeSpan.FromMinutes 30.)
 
             processResult.Messages |> separated "" = dotnetcliVersion
-        with 
+        with
         | _ -> false
 
     if correctVersionInstalled then
         tracefn "dotnetcli %s already installed" dotnetcliVersion
     else
         CleanDir dotnetSDKPath
-        let archiveFileName = 
+        let archiveFileName =
             if isWindows then
                 sprintf "dotnet-dev-win-x64.%s.zip" dotnetcliVersion
             elif isLinux then
                 sprintf "dotnet-dev-ubuntu-x64.%s.tar.gz" dotnetcliVersion
             else
                 sprintf "dotnet-dev-osx-x64.%s.tar.gz" dotnetcliVersion
-        let downloadPath = 
+        let downloadPath =
                 sprintf "https://dotnetcli.azureedge.net/dotnet/Sdk/%s/%s" dotnetcliVersion archiveFileName
         let localPath = Path.Combine(dotnetSDKPath, archiveFileName)
 
         tracefn "Installing '%s' to '%s'" downloadPath localPath
-        
+
         use webclient = new Net.WebClient()
         webclient.DownloadFile(downloadPath, localPath)
 
@@ -80,9 +80,9 @@ Target "InstallDotNetCore" (fun _ ->
 
             Shell.Exec("tar", sprintf """-xvf "%s" -C "%s" """ localPath dotnetSDKPath)
             |> assertExitCodeZero
-        else  
+        else
             Compression.ZipFile.ExtractToDirectory(localPath, dotnetSDKPath)
-        
+
         tracefn "dotnet cli path - %s" dotnetSDKPath
         System.IO.Directory.EnumerateFiles dotnetSDKPath
         |> Seq.iter (fun path -> tracefn " - %s" path)
@@ -98,7 +98,7 @@ Target "InstallDotNetCore" (fun _ ->
 
 Target "Install" (fun _ ->
     projects
-    |> Seq.iter (fun s -> 
+    |> Seq.iter (fun s ->
         let dir = IO.Path.GetDirectoryName s
         printf "Installing: %s\n" dir
         Npm (fun p ->
@@ -119,7 +119,7 @@ Target "Clean" (fun _ ->
 
 Target "Build" (fun _ ->
     projects
-    |> Seq.iter (fun s -> 
+    |> Seq.iter (fun s ->
         let dir = IO.Path.GetDirectoryName s
         runDotnet dir "build")
 )
@@ -130,6 +130,6 @@ Target "Build" (fun _ ->
   ==> "InstallDotNetCore"
   ==> "Install"
   ==> "Build"
-  
+
 // start build
 RunTargetOrDefault "Build"
