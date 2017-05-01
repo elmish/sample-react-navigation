@@ -19,6 +19,7 @@ build/
 obj
 bin
 out
+dotnetsdk
 
 # git
 *.orig
