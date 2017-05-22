@@ -31,9 +31,6 @@ let toHash =
 
 /// The URL is turned into a Page option.
 let pageParser : Parser<Page->_,_> =
-  let top s = 
-    top s
-    
   oneOf
     [ map Home (s "home")
       map Blog (s "blog" </> i32)
