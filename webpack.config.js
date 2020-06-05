@@ -1,118 +1,93 @@
-var path = require("path");
-var fs = require("fs");
-var webpack = require("webpack");
-var autoprefixer = require('autoprefixer');
-var copyWebpackPlugin = require('copy-webpack-plugin');
+const path = require("path");
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const MinifyPlugin = require("terser-webpack-plugin");
 
-function resolve(filePath) {
-  return path.join(__dirname, filePath)
-}
-
-var babelOptions = {
-  presets: [["es2015", { "modules": false }]],
-  plugins: ["transform-runtime"]
-};
-
-var out_path = resolve('./build');
-
-var isProduction = process.argv.indexOf("-p") >= 0;
+const isProduction = process.argv.indexOf("-p") >= 0;
 console.log("Bundling for " + (isProduction ? "production" : "development") + "...");
 
-var entry = isProduction 
-  ? { vendor: [ 
-        'react',
-        'react-dom',
-        'whatwg-fetch',
-      ],
-      main: "./src/app.fsproj" }
-  : resolve('./src/app.fsproj');
-
-var output = isProduction 
-  ? { publicPath: "/",
-      path: out_path,
-      filename: '[chunkhash].[name].js' }
-  : { filename: 'main.js',
-      path: resolve('./build') }
-
-var plugins = isProduction
-  ? [
-      new webpack.optimize.CommonsChunkPlugin({
-          names: ['vendor','manifest'] // Specify the common bundle names.
-      }),
-      new copyWebpackPlugin([
-          { from: 'src/index.html' }
-      ]),
-      function () {
-          this.plugin("done", function (stats) {
-              var replaceInFile = function (filePath, replacements) {
-                  var str = fs.readFileSync(filePath, 'utf8');
-                  replacements.forEach(function ({toReplace,replacement}) {
-                    var replacer = function (match) {
-                        console.log('Replacing in %s: %s => %s', filePath, match, replacement);
-                        return './' + replacement;
-                    };
-                    str = str.replace(new RegExp(toReplace, 'g'), replacer);
-                  });
-                  fs.writeFileSync(filePath, str);
-              };
-              var assetsByChunkName = stats.toJson().assetsByChunkName;
-              var regexStr = function (chunk) {
-                  return '\.\/([a-z0-9]*\.{0,1})' + chunk + '\.js';
-              }
-              replaceInFile(path.join(out_path, 'index.html'),
-                [ {toReplace: regexStr('main'), replacement: assetsByChunkName.main[0]},
-                  {toReplace: regexStr('manifest'), replacement: assetsByChunkName.manifest[0]},
-                  {toReplace: regexStr('vendor'), replacement: assetsByChunkName.vendor[0]} ]
-              );
-          });
-      }
+const plugins =
+    isProduction
+    ? [ new ExtractTextPlugin("styles.css"),
+        new HtmlWebpackPlugin({
+            filename: path.resolve('./build/index.html'),
+            template: path.resolve('./src/index.html')
+        })
     ]
-  : [ new copyWebpackPlugin([
-          { from: 'src/index.html' }
-      ])];
+    : [
+        new HtmlWebpackPlugin({
+            filename: path.resolve('./build/index.html'),
+            template: path.resolve('./src/index.html')
+        })
+    ];
 
 module.exports = {
-  devtool: "source-map",
-  entry: entry,
-  output: output,
-  resolve: {
-    modules: [
-      "node_modules", resolve("./node_modules/")
-    ]
-  },
-  devServer: {
-    contentBase: out_path,
-    port: 8080
-  },
-  module: {
-    rules: [
-      {
-        test: /\.fs(x|proj)?$/,
-        use: {
-          loader: "fable-loader",
-          options: {
-            babel: babelOptions,
-            define: isProduction ? [] : ["DEBUG"]
-          }
-        }
-      },
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: babelOptions
-        },
-      },
-      {
-        test: /\.sass$/,
-        use: [
-          "style-loader",
-          "css-loader",
-          "sass-loader"
+    mode: "development",
+    devtool: isProduction ? false : "source-map",
+    entry: isProduction ? // We don't use the same entry for dev and production, to make HMR over style quicker for dev env
+    {
+        demo: [
+            "@babel/polyfill",
+            './src/app.fsproj'
         ]
-      }
-    ]
-  },
-  plugins: plugins
-};
+    } : {
+        app: [
+            "@babel/polyfill",
+            './src/app.fsproj'
+        ]
+    },
+    output: {
+        path: path.join(__dirname, "./build"),
+        filename: isProduction ? '[name].[hash].js' : '[name].js',
+        publicPath: ""
+    },
+    optimization : {
+        splitChunks: {
+            cacheGroups: {
+                fable: {
+                    test: /fable-library/,
+                    name: "fable",
+                    chunks: "all"
+                },
+                commons: {
+                    test: /node_modules/,
+                    name: "vendors",
+                    chunks: "all"
+                }
+            }
+        },
+        minimizer: isProduction
+            ? [new MinifyPlugin()]
+            : []
+    },
+    plugins: plugins,
+    devServer: {
+        port: 8090,
+        hot: true,
+        inline: true,
+        proxy: {
+        }
+    },
+    module: {
+        rules: [{
+            test: /\.fs(x|proj)?$/,
+            use: "fable-loader"
+        },
+        {
+            test: /\.(sass|scss|css)$/,
+            use: isProduction
+                    ? ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: ["css-loader", "sass-loader"]
+                    })
+                    : ['style-loader',
+                       'css-loader',
+                       'sass-loader' 
+                    ],
+        },
+        {
+            test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)(\?.*$|$)/,
+            use: ["file-loader"]
+        }]
+    }
+}

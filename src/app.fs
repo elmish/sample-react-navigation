@@ -5,15 +5,11 @@
 module App
 
 open Fable.Core
-open Fable.Import
 open Elmish
-open Fable.Import.Browser
-open Fable.PowerPack
-open Elmish.Browser.Navigation
-open Elmish.Browser.UrlParser
-
-
-JsInterop.importAll "whatwg-fetch"
+open Browser
+open Elmish.Navigation
+open Elmish.UrlParser
+open Thoth.Fetch
 
 // Types
 type Page = Home | Blog of int | Search of string
@@ -49,7 +45,7 @@ type ZipResponse = { places : Place list }
 
 let get query =
     promise {
-        let! r = Fable.PowerPack.Fetch.fetchAs<ZipResponse> ("http://api.zippopotam.us/us/" + query) []
+        let! r = Fetch.fetchAs ("http://api.zippopotam.us/us/" + query)
         return r |> fun r -> r.places |> List.map (fun p -> p.``place name`` + ", " + p.state)
     }
 
@@ -61,13 +57,13 @@ let urlUpdate (result:Option<Page>) model =
   | Some (Search query as page) ->
       { model with page = page; query = query },
          if Map.containsKey query model.cache then [] 
-         else Cmd.ofPromise get query (fun r -> FetchSuccess (query,r)) (fun ex -> FetchFailure (query,ex)) 
+         else Cmd.OfPromise.either get query (fun r -> FetchSuccess (query,r)) (fun ex -> FetchFailure (query,ex)) 
 
   | Some page ->
       { model with page = page; query = "" }, []
 
   | None ->
-      Browser.console.error("Error parsing url")  
+      console.error("Error parsing url")  
       ( model, Navigation.modifyUrl (toHash model.page) )
 
 let init result =
@@ -99,8 +95,8 @@ let update msg model =
 
 // VIEW
 
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
+open Fable.React
+open Fable.React.Props
 
 
 let viewLink page description =
@@ -109,9 +105,9 @@ let viewLink page description =
     [ str description]
 
 let internal centerStyle direction =
-    Style [ Display "flex"
+    Style [ Display DisplayOptions.Flex
             FlexDirection direction
-            AlignItems "center"
+            AlignItems AlignItemsOptions.Center
             unbox("justifyContent", "center")
             Padding "20px 0" ]
 
@@ -120,7 +116,7 @@ let words size message =
 
 let internal onEnter msg dispatch =
     function 
-    | (ev:React.KeyboardEvent) when ev.keyCode = 13. ->
+    | (ev:Browser.Types.KeyboardEvent) when ev.keyCode = 13. ->
         ev.preventDefault() 
         dispatch msg
     | _ -> ()
@@ -156,7 +152,7 @@ let view model dispatch =
           viewLink (Blog 26) "Workout Plan"
           input
             [ Placeholder "Enter a zip code (e.g. 90210)"
-              Value (U2.Case1 model.query)
+              DefaultValue (U2.Case1 model.query)
               onEnter Enter dispatch
               OnInput (fun ev -> Query (unbox ev.target?value) |> dispatch)
               Style [ CSSProp.Width "200px"; Margin "0 20px" ] ]
@@ -171,6 +167,6 @@ open Elmish.Debug
 // App
 Program.mkProgram init update view
 |> Program.toNavigable (parseHash pageParser) urlUpdate
-|> Program.withReact "elmish-app"
+|> Program.withReactSynchronous "elmish-app"
 |> Program.withDebugger
 |> Program.run 
