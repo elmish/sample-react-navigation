@@ -1,56 +1,64 @@
 #r "paket:
+nuget FSharp.Core 4.7
 nuget Fake.IO.FileSystem
 nuget Fake.DotNet.Cli
 nuget Fake.JavaScript.Yarn
 nuget Fake.Core.Target
 nuget Fake.Tools.Git //"
-#if !FAKE
 #load ".fake/build.fsx/intellisense.fsx"
-#r "Facades/netstandard"
-#endif
-
 open Fake.Core
-open Fake.Core.TargetOperators
 open Fake.DotNet
-open Fake.Tools
 open Fake.IO
+open Fake.IO.FileSystemOperators
+open Fake.IO.Globbing.Operators
+open Fake.Core.TargetOperators
+open System
 open Fake.JavaScript
 
 
 let gitName = "sample-react-navigation"
-let gitOwner = "elmish"
-let gitRepo = sprintf "git@github.com:%s/%s.git" gitOwner gitName
+let gitOwner = "fable-elmish"
+let gitHome = sprintf "https://github.com/%s" gitOwner
+
+// Filesets
+let projects  =
+      !! "src/**.fsproj"
+
 
 Target.create "Clean" (fun _ ->
     Shell.cleanDir "build"
 )
 
 Target.create "Install" (fun _ ->
-    DotNet.restore id "src"
     Yarn.install id
+    projects
+    |> Seq.iter (fun s -> 
+        let dir = IO.Path.GetDirectoryName s
+        DotNet.restore id dir
+    )
 )
 
 Target.create "Build" (fun _ ->
-    Yarn.exec "build" id
+    DotNet.exec id "fable" "src -o src/out --run webpack" |> ignore
 )
 
 Target.create "Watch" (fun _ ->
-    Yarn.exec "start" id
+    DotNet.exec id "fable" "watch src -o src/out -s --run webpack serve" |> ignore
 )
 
 // --------------------------------------------------------------------------------------
 // Release Scripts
-
+open Fake.Tools.Git
 Target.create "ReleaseSample" (fun _ ->
     let tempDocsDir = "temp/gh-pages"
     Shell.cleanDir tempDocsDir
-    Git.Repository.cloneSingleBranch "" gitRepo  "gh-pages" tempDocsDir
-    Git.Repository.fullclean tempDocsDir
+    Repository.cloneSingleBranch "" (gitHome + "/" + gitName + ".git") "gh-pages" tempDocsDir
 
-    Shell.copyRecursive "build" tempDocsDir true |> Trace.tracefn "%A"
-    Git.Staging.stageAll tempDocsDir
-    Git.Commit.exec tempDocsDir "Update generated sample"
-    Git.Branches.push tempDocsDir
+    Shell.copyRecursive "build" tempDocsDir true |> ignore
+
+    Staging.stageAll tempDocsDir
+    Commit.exec tempDocsDir (sprintf "Update generated sample")
+    Branches.push tempDocsDir
 )
 
 Target.create "Publish" ignore
@@ -63,11 +71,11 @@ Target.create "Publish" ignore
 "Clean"
   ==> "Install"
   ==> "Watch"
-
+  
 "Publish"
   <== [ "Build"
         "ReleaseSample" ]
-
-
+  
+  
 // start build
 Target.runOrDefault "Build"

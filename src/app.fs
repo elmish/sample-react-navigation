@@ -116,7 +116,7 @@ let words size message =
 
 let internal onEnter msg dispatch =
     function 
-    | (ev:Browser.Types.KeyboardEvent) when ev.keyCode = 13. ->
+    | (ev:Browser.Types.KeyboardEvent) when ev.key = "Enter" ->
         ev.preventDefault() 
         dispatch msg
     | _ -> ()

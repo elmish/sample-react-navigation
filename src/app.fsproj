@@ -6,12 +6,10 @@
     <Compile Include="app.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="*" />
-    <PackageReference Include="Fable.Promise" Version="*" />
-    <PackageReference Include="Fable.Elmish" Version="3.0.6" />
-    <PackageReference Include="Fable.Elmish.React" Version="3.*" />
-    <PackageReference Include="Fable.Elmish.Browser" Version="3.*" />
-    <PackageReference Include="Fable.Elmish.Debugger" Version="3.2.0" />
+    <PackageReference Include="Fable.Elmish.Browser" Version="4.0.0-beta-1" />
+    <PackageReference Include="Fable.Elmish.Debugger" Version="4.0.0-beta-1" />
+    <PackageReference Include="Fable.Elmish.React" Version="4.0.0-beta-1" />
     <PackageReference Include="Thoth.Fetch" Version="2.0.0" />
+    <PackageReference Include="Thoth.Json" Version="4.0.0" />
   </ItemGroup>
 </Project>

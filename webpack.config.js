@@ -1,25 +1,22 @@
 const path = require("path");
+const webpack = require("webpack");
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const MinifyPlugin = require("terser-webpack-plugin");
 
-const isProduction = process.argv.indexOf("-p") >= 0;
+const isProduction = process.argv.indexOf("serve") < 0;
 console.log("Bundling for " + (isProduction ? "production" : "development") + "...");
 
-const plugins =
-    isProduction
-    ? [ new ExtractTextPlugin("styles.css"),
-        new HtmlWebpackPlugin({
-            filename: path.resolve('./build/index.html'),
-            template: path.resolve('./src/index.html')
-        })
-    ]
-    : [
-        new HtmlWebpackPlugin({
-            filename: path.resolve('./build/index.html'),
-            template: path.resolve('./src/index.html')
-        })
-    ];
+const commonPlugins = [
+    new HtmlWebpackPlugin({
+        filename: './index.html',
+        template: './src/index.html'
+    }),
+    new CopyWebpackPlugin({
+        patterns: [
+            { from: './node_modules/todomvc-app-css/index.css' }
+        ]}
+    )];
 
 module.exports = {
     mode: "development",
@@ -27,28 +24,21 @@ module.exports = {
     entry: isProduction ? // We don't use the same entry for dev and production, to make HMR over style quicker for dev env
     {
         demo: [
-            "@babel/polyfill",
-            './src/app.fsproj'
+            './src/out/app.js'
         ]
     } : {
         app: [
-            "@babel/polyfill",
-            './src/app.fsproj'
+            './src/out/app.js'
         ]
     },
     output: {
         path: path.join(__dirname, "./build"),
         filename: isProduction ? '[name].[hash].js' : '[name].js',
-        publicPath: ""
+        publicPath: "/"
     },
     optimization : {
         splitChunks: {
             cacheGroups: {
-                fable: {
-                    test: /fable-library/,
-                    name: "fable",
-                    chunks: "all"
-                },
                 commons: {
                     test: /node_modules/,
                     name: "vendors",
@@ -60,34 +50,40 @@ module.exports = {
             ? [new MinifyPlugin()]
             : []
     },
-    plugins: plugins,
     devServer: {
         port: 8090,
-        hot: true,
-        inline: true,
-        proxy: {
+        static: {
+            directory: './build'
         }
     },
     module: {
-        rules: [{
-            test: /\.fs(x|proj)?$/,
-            use: "fable-loader"
-        },
-        {
-            test: /\.(sass|scss|css)$/,
-            use: isProduction
-                    ? ExtractTextPlugin.extract({
-                        fallback: 'style-loader',
-                        use: ["css-loader", "sass-loader"]
-                    })
-                    : ['style-loader',
-                       'css-loader',
-                       'sass-loader' 
-                    ],
-        },
-        {
-            test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)(\?.*$|$)/,
-            use: ["file-loader"]
-        }]
-    }
+        rules: [
+            {
+                test: /\.js$/,
+                enforce: "pre",
+                use: ["source-map-loader"],
+            },
+            {
+                test: /\.js$/,
+                exclude: /node_modules/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: [
+                            ["@babel/preset-env", {
+                                "modules": false,
+                                "useBuiltIns": "usage",
+                                "corejs": 3
+                            }]
+                        ],
+                    }
+                },
+            }
+        ]
+    }, 
+    plugins: isProduction
+        ? commonPlugins
+        : commonPlugins.concat([
+            new webpack.HotModuleReplacementPlugin()
+        ])
 }
