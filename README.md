@@ -8,7 +8,7 @@ Pre-built SPA is available at https://elmish.github.io/sample-react-navigation.
 
 ## Building and running the sample
 Pre-requisites:
-* .NET Core [SDK 3.*](https://docs.microsoft.com/en-us/dotnet/core/install/sdk)
+* .NET Core [SDK 5.*](https://docs.microsoft.com/en-us/dotnet/core/install/sdk)
 * `yarn` installed as a global `npm` or a platform package and available in the path 
 
 To build locally and start the webpack-devserver:
