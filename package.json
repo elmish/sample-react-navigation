@@ -8,7 +8,7 @@
     "remotedev": "^0.2.7"
   },
   "devDependencies": {
-    "@babel/core": "^7.1.6",
+    "@babel/core": "^7.29.6",
     "@babel/preset-env": "^7.13.10",
     "babel-loader": "^8.2.2",
     "copy-webpack-plugin": "^6.0.1",
